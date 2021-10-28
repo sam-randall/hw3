@@ -105,9 +105,28 @@ class CameraCalibrator:
         HINT: You MAY find the function np.meshgrid() useful.
         """
         ########## Code starts here ##########
+        
+        # build a list of all the x's of each checkerboard
+        big_x = []
+        
+        # build a list of all the y's of each checkerboard 
+        big_y = []
+        
+        # we will append each time. to build [x1, x2, x3 ... xn] & [y1, ...yn]
+        # for each chessboard
+        for i in range(self.n_chessboards):
+            x = np.arange(0, self.n_corners_x, 1)
+            x_values = x * self.d_square
+            y = np.arange(0, self.n_corners_y, 1)
+            y_values = y * self.d_square
+        
+            xx, yy = np.meshgrid(x_values, y_values) 
+            big_x.append(xx)
+            big_y.append(yy)
+
 
         ########## Code ends here ##########
-        return corner_coordinates
+        return big_x, big_y
 
     def estimateHomography(self, u_meas, v_meas, X, Y):  # Zhang Appendix A
         """
@@ -124,7 +143,57 @@ class CameraCalibrator:
         HINT: Some numpy functions that might come in handy are stack, vstack, hstack, column_stack, expand_dims, zeros_like, and ones_like.
         """
         ########## Code starts here ##########
-
+        # X is an array of X values for the board, likewise for Y.
+        # standard chessboard
+        # X has dimensions 9 x 8
+        # Y has dimensions 9 x 8
+        
+        X_flattened = X.flatten()[:, np.newaxis]
+        Y_flattened = Y.flatten()[:, np.newaxis]
+        
+        #u_meas = u_meas[:, np.newaxis]
+        #v_meas = v_meas[:, np.newaxis]
+        column_of_ones = np.ones((X_flattened.shape[0], 1))  # dim n x 1
+        M_tilde_transpose = np.hstack((X_flattened, Y_flattened, column_of_ones)) # n x 3
+        u_meas_a = u_meas[:, np.newaxis]
+        v_meas_a = v_meas[:, np.newaxis]
+        u_times_M_tt = u_meas_a * M_tilde_transpose
+        # u_times_M_tt = u_times_M_tt[:, np.newaxis]
+        
+        v_times_M_tt = v_meas_a * M_tilde_transpose#np.dot(v_meas, M_tilde_transpose)
+        # v_times_M_tt = v_times_M_tt[:, np.newaxis]
+        
+        # M_t = [X , Y, 1]
+        
+        # M_tt.shape (N x 3)
+        
+        #[N x 3][N x 3][1 x 3]
+        
+         
+        # u_meas has size 63     
+        first_row_of_mega_matrix = np.hstack((M_tilde_transpose, np.zeros_like(M_tilde_transpose), -u_times_M_tt)) # 9 x (2 * 17 + 
+        second_row_of_mega_M = np.hstack((np.zeros_like(M_tilde_transpose),\
+                                            M_tilde_transpose, -v_times_M_tt))
+                
+                
+        L = np.vstack((first_row_of_mega_matrix, second_row_of_mega_M)) # we don't actually know that 
+                
+        u, s, vh = np.linalg.svd(L)
+        
+        e_vector = vh[-1, :]
+        H = np.reshape(e_vector, (3, 3))
+        
+        
+        
+        # this is L.
+                
+                
+         
+        # how can we relate n to our problem, and where does the nine come from?
+        # L: 2 n x 9
+        
+        
+        # M_tilde shape should be 15 x 9.
         ########## Code ends here ##########
         return H
 
@@ -503,3 +572,15 @@ class CameraCalibrator:
             )  # Flip Y-axis to traditional direction
 
         return u_meas, v_meas  # Lists of arrays (one per chessboard)
+        
+def main():
+        print("hello world")
+        cameraCalibrator = CameraCalibrator()
+        
+        
+        cameraCalibrator.genCornerCoordinates(0, 0)
+        
+        
+                
+if __name__ == "__main__":
+        main()
