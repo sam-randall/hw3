@@ -210,6 +210,95 @@ class CameraCalibrator:
         HINT: What is the size of V?
         """
         ########## Code starts here ##########
+        
+        
+        def calculateVij(h, i, j):
+            # h_i is a column of h.
+            vij = np.array([h[0, i - 1] * h[0, j - 1], \
+            h[0,i - 1] * h[1,j - 1] + h[1, i - 1] * h[0,j - 1],\
+            h[1,i - 1] * h[1,j - 1], \
+            h[2,i - 1] * h[0,j - 1] + h[0,i - 1] * h[2,j - 1], \
+            h[2, i - 1] * h[1, j - 1] + h[1, i - 1] * h[2 , j - 1],\
+            h[2, i  - 1] * h[2, j - 1]])
+             
+            return vij
+             
+            
+        V = np.zeros((len(H) * 2, 6))     
+        
+        for i in range(len(H)):
+             h = H[i] # h : 3 x 3 np array
+             
+             v12 = calculateVij(h, 1, 2)
+             v11 = calculateVij(h, 1, 1)
+             v22 = calculateVij(h, 2, 2)
+             
+             # vij is going to have dimension 6
+             
+             # dimensions
+             
+             v12 = v12[np.newaxis, :]
+             v11 = v11[np.newaxis, :]
+             v22 = v22[np.newaxis, :]
+             
+             assert(v12.shape == (1, 6))
+             assert(v11.shape == (1, 6))
+             
+             v_minor = np.vstack((v12, v11 - v22)) # 2 x 6 matrix.
+             
+             V[2 * i : 2 * i + 2] = v_minor
+             
+             
+             
+             
+             
+            
+                    
+        
+        # TODO fill this in.
+        
+        # For one point 
+        # following equation 8: we build 
+        # v12.T 
+        # (v11 - v22).T
+        
+        # Then stack. that builds V.
+        
+        # first step build V : (2 n x 6), n = 63 in our case.
+        
+        # once we have V -> do SVD to find b.
+        u, s, vh = np.linalg.svd(V)
+        
+        e_vector = vh[-1, :]
+        
+        b11, b12, b22, b13, b23, b33 = e_vector
+        
+        B = np.array([
+            [b11, b12, b13],
+            [b12, b22, b23], 
+            [b13, b23, b33]
+        ])
+        
+        v_0 = (b12 * b13 - b11 * b23) / (b11 * b22 - b12 ** 2)
+        l = b33 - (b13 ** 2 +v_0 *(b12 * b13 - b11*b23))/b11
+        alpha = np.sqrt(l/b11)
+        beta = np.sqrt((l * b11) / (b11 * b22- b12 ** 2))
+        gamma = -(b12 * (alpha ** 2) * beta) / l
+        u_0 = (gamma * v_0)/beta -(b13 * (alpha ** 2) ) / l
+        
+        A = np.array([
+            [alpha, gamma, u_0],
+            [0, beta, v_0],
+            [0, 0, 1]
+        ])
+        # B = A-T A -1. how do we solve for A. 
+        # B -1 = A A.T
+        
+        
+        print("gamma {}, alpha {}, (u0, v0): {}, {}".format(gamma, alpha, u_0, v_0))
+        
+        # as before find smallest eigen vector to get b which can be (probably?)
+        # be reshaped to find b (the quantity listed in the paper)
 
         ########## Code ends here ##########
         return A
@@ -224,6 +313,23 @@ class CameraCalibrator:
             t: the translation vector
         """
         ########## Code starts here ##########
+        
+        A_inv = np.linalg.inv(A)
+        
+        h1 = H[:, 0]
+        h2 = H[:, 1]
+        h3 = H[:, 2]
+        
+        lamb = 1 / np.linalg.norm(np.dot(A_inv, h1))
+        
+        
+        r1 = lamb * ( np.dot(A_inv, h1))
+        r2 = lamb * ( np.dot(A_inv, h2))
+        r3 = np.cross(r1,r2)
+        
+        t = lamb * np.dot(A_inv, h3)
+        
+        R = np.array([r1, r2, r3]) # build a 3 x 3 matrix where each column is r1, r2, r3
 
         ########## Code ends here ##########
         return R, t
@@ -241,6 +347,17 @@ class CameraCalibrator:
 
         """
         ########## Code starts here ##########
+        
+        Rt = np.hstack((R, t))
+        
+        M_tilde = np.vstack((X, Y, Z, np.ones_like(X)))
+        
+        RtMtilde = np.dot(Rt, M_tilde)
+        
+        x = RtMtilde[0] # TODO Maybe normalize this? 
+        y = RtMtilde[1]
+        
+        
 
         ########## Code ends here ##########
         return x, y
@@ -258,7 +375,20 @@ class CameraCalibrator:
             u, v: the coordinates in the ideal pixel image plane
         """
         ########## Code starts here ##########
-
+        Rt = np.hstack((R, t[:, np.newaxis]))
+        print("X shape", X.shape, "Y shape", Y.shape, "Z shape", Z.shape)
+        
+        X = X.flatten()
+        Y = Y.flatten()
+        M_tilde = np.vstack((X, Y, Z, np.ones_like(X)))
+        
+        RtMtilde = np.dot(Rt, M_tilde)
+        artm = np.dot(A, RtMtilde)
+        
+        u = artm[0]
+        v = artm[1]
+        print(u.shape)
+        assert(u.shape == X.shape)
         ########## Code ends here ##########
         return u, v
 
