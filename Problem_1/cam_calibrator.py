@@ -123,8 +123,6 @@ class CameraCalibrator:
             xx, yy = np.meshgrid(x_values, y_values) 
             big_x.append(xx)
             big_y.append(yy)
-
-
         ########## Code ends here ##########
         return big_x, big_y
 
@@ -150,18 +148,15 @@ class CameraCalibrator:
         
         X_flattened = X.flatten()[:, np.newaxis]
         Y_flattened = Y.flatten()[:, np.newaxis]
-        
-        #u_meas = u_meas[:, np.newaxis]
-        #v_meas = v_meas[:, np.newaxis]
+
         column_of_ones = np.ones((X_flattened.shape[0], 1))  # dim n x 1
         M_tilde_transpose = np.hstack((X_flattened, Y_flattened, column_of_ones)) # n x 3
+        
         u_meas_a = u_meas[:, np.newaxis]
         v_meas_a = v_meas[:, np.newaxis]
-        u_times_M_tt = u_meas_a * M_tilde_transpose
-        # u_times_M_tt = u_times_M_tt[:, np.newaxis]
         
-        v_times_M_tt = v_meas_a * M_tilde_transpose#np.dot(v_meas, M_tilde_transpose)
-        # v_times_M_tt = v_times_M_tt[:, np.newaxis]
+        u_times_M_tt = u_meas_a * M_tilde_transpose # 63 x 1, 63 x 3
+        v_times_M_tt = v_meas_a * M_tilde_transpose #np.dot(v_meas, M_tilde_transpose)
         
         # M_t = [X , Y, 1]
         
@@ -181,19 +176,11 @@ class CameraCalibrator:
         u, s, vh = np.linalg.svd(L)
         
         e_vector = vh[-1, :]
-        H = np.reshape(e_vector, (3, 3))
-        
-        
-        
-        # this is L.
-                
-                
+        H = np.reshape(e_vector, (3, 3))   
          
         # how can we relate n to our problem, and where does the nine come from?
         # L: 2 n x 9
-        
-        
-        # M_tilde shape should be 15 x 9.
+
         ########## Code ends here ##########
         return H
 
@@ -247,13 +234,7 @@ class CameraCalibrator:
              v_minor = np.vstack((v12, v11 - v22)) # 2 x 6 matrix.
              
              V[2 * i : 2 * i + 2] = v_minor
-             
-             
-             
-             
-             
-            
-                    
+         
         
         # TODO fill this in.
         
@@ -329,8 +310,13 @@ class CameraCalibrator:
         
         t = lamb * np.dot(A_inv, h3)
         
-        R = np.array([r1, r2, r3]) # build a 3 x 3 matrix where each column is r1, r2, r3
-
+        r1 = r1[:,np.newaxis]
+        r2 = r2[:,np.newaxis]
+        r3 = r3[:,np.newaxis]
+        Q = np.hstack((r1, r2, r3)) # build a 3 x 3 matrix where each column is r1, r2, r3
+        
+        u, s, vh = np.linalg.svd(Q)
+        R = np.dot(u, vh)
         ########## Code ends here ##########
         return R, t
 
@@ -354,8 +340,11 @@ class CameraCalibrator:
         
         RtMtilde = np.dot(Rt, M_tilde)
         
-        x = RtMtilde[0] # TODO Maybe normalize this? 
-        y = RtMtilde[1]
+        
+        #------
+        
+        x = RtMtilde[0] / RtMtilde[2]
+        y = RtMtilde[1] / RtMtilde[2]
         
         
 
@@ -385,8 +374,8 @@ class CameraCalibrator:
         RtMtilde = np.dot(Rt, M_tilde)
         artm = np.dot(A, RtMtilde)
         
-        u = artm[0]
-        v = artm[1]
+        u = artm[0] / artm[2]
+        v = artm[1] / artm[2]
         print(u.shape)
         assert(u.shape == X.shape)
         ########## Code ends here ##########
